@@ -1,4 +1,5 @@
-import { ApolloServer, gql } from "apollo-server";
+import { ApolloServer, UserInputError, gql } from "apollo-server";
+import { v4 as uuid } from "uuid";
 
 const people = [
   {
@@ -27,6 +28,11 @@ const people = [
 ];
 
 const typeDefs = gql(`
+  enum HasValue {
+    YES
+    NO
+  }
+
   type Address {
     street: String!
     city: String!
@@ -43,18 +49,48 @@ const typeDefs = gql(`
 
   type Query {
     personCount: Int!
-    allPeople: [Person]!
+    allPeople(phone: HasValue): [Person]!
     findPerson(name: String!): Person
+  }
+
+  type Mutation {
+    addPerson(
+      name: String!
+      phone: String
+      street: String!
+      city: String!
+    ): Person
   }
 `);
 
 const resolvers = {
   Query: {
     personCount: () => people.length,
-    allPeople: () => people,
+    allPeople: (root, args) => {
+      const { phone } = args;
+      if (!phone) {
+        return people;
+      }
+      return people.filter((person) =>
+        phone === "YES" ? person.phone : !person.phone
+      );
+    },
     findPerson: (root, args) => {
       const { name } = args;
       return people.find((person) => person.name === name);
+    },
+  },
+  Mutation: {
+    addPerson: (root, args) => {
+      const { name } = args;
+      if (people.find((person) => person.name === name)) {
+        throw new UserInputError("Duplicated person", {
+          invalidArgs: name,
+        });
+      }
+      const person = { ...args, id: uuid() };
+      people.push(person);
+      return person;
     },
   },
   Person: {

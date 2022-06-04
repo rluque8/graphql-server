@@ -60,6 +60,10 @@ const typeDefs = gql(`
       street: String!
       city: String!
     ): Person
+    editNumber(
+      name: String!
+      phone: String!
+    ): Person
   }
 `);
 
@@ -91,6 +95,19 @@ const resolvers = {
       const person = { ...args, id: uuid() };
       people.push(person);
       return person;
+    },
+    editNumber: (root, args) => {
+      const personIndex = people.findIndex(
+        (person) => person.name === args.name
+      );
+      if (personIndex === -1) {
+        return null;
+      }
+      const person = people[personIndex];
+
+      const updatedPerson = { ...person, phone: args.phone };
+      people[personIndex] = updatedPerson;
+      return updatedPerson;
     },
   },
   Person: {

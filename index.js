@@ -1,5 +1,8 @@
 import { ApolloServer, UserInputError, gql } from "apollo-server";
 import { v4 as uuid } from "uuid";
+import "dotenv/config";
+import "./db.js";
+import Person from "./models/person.js";
 
 const people = [
   {
@@ -69,15 +72,22 @@ const typeDefs = gql(`
 
 const resolvers = {
   Query: {
-    personCount: () => people.length,
-    allPeople: (root, args) => {
+    personCount: async () => Person.count().exec(),
+    allPeople: async (root, args) => {
       const { phone } = args;
       if (!phone) {
-        return people;
+        return await Person.find({}).exec();
       }
-      return people.filter((person) =>
-        phone === "YES" ? person.phone : !person.phone
-      );
+      return await Person.find({
+        phone:
+          phone === "YES"
+            ? {
+                $ne: null,
+              }
+            : {
+                $eq: null,
+              },
+      }).exec;
     },
     findPerson: (root, args) => {
       const { name } = args;
@@ -85,16 +95,20 @@ const resolvers = {
     },
   },
   Mutation: {
-    addPerson: (root, args) => {
+    addPerson: async (root, args) => {
       const { name } = args;
-      if (people.find((person) => person.name === name)) {
+      const person = await Person.findOne({ name }).exec();
+      console.log("person", person);
+
+      if (person) {
         throw new UserInputError("Duplicated person", {
           invalidArgs: name,
         });
       }
-      const person = { ...args, id: uuid() };
-      people.push(person);
-      return person;
+      const newPerson = { ...args, id: uuid() };
+      await Person.create(newPerson);
+
+      return newPerson;
     },
     editNumber: (root, args) => {
       const personIndex = people.findIndex(
